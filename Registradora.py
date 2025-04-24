@@ -25,23 +25,27 @@ class Registradora:
         self.cursor.execute("SELECT * FROM produtos")
         print(self.cursor.fetchall())
 
-    def registrarVendas(self, produtos):
+    def registrarVendas(self, lista):
         # cria a venda na tabela vendas
         self.cursor.execute("""
             INSERT INTO vendas(quantidade, valor_total)
             VALUES (0, 0)
         """)
         self.cursor.execute("SELECT codigo_venda FROM vendas ORDER BY codigo_venda DESC LIMIT 1")
-        id_venda = self.cursor.fetchone()[0]
+        venda_id = self.cursor.fetchone()[0]
 
         # adiciona produto por produto
-        for item in produtos:
-            codigo_produto, nome, valor_unitario, estoque = item
+        for item in lista:
+            produto_id, quantidade = item
+            valor_unitario = self.cursor.execute("SELECT valor_unitario FROM produtos WHERE codigo_produto = ?", (produto_id,)).fetchone()[0]
             self.cursor.execute("""
                 INSERT INTO produtos_vendidos (venda_id, produto_id, quantidade, valor_total)
                 VALUES (?, ?, ?, ?)
-            """, (id_venda, codigo_produto, estoque, valor_unitario))
+            """, (venda_id, produto_id, quantidade, valor_unitario * quantidade))
         print("Venda realizada com sucesso")
+
+        self.atualizarVendas(venda_id)
+
         self.connector.commit()
 
     def mostrarVendas(self):
@@ -54,11 +58,25 @@ class Registradora:
                         pv.venda_id,
                         p.nome,
                         pv.quantidade,
-                        pv.valor_total
+                        pv.valor_total,
+                        v.data_compra
                     FROM produtos_vendidos pv
-                    JOIN produtos p ON pv.produto_id = p.codigo_produto"""
+                    JOIN produtos p ON pv.produto_id = p.codigo_produto
+                    JOIN vendas v ON pv.venda_id = v.codigo_venda"""
         db = pd.read_sql(query, self.connector)
         print(db.to_string(index=False))
+    
+    def atualizarVendas(self, venda_id):
+        quantidade_total_venda = self.cursor.execute("SELECT SUM(quantidade) FROM produtos_vendidos WHERE venda_id = ?", (venda_id,)).fetchone()[0]
+        valor_total_venda = self.cursor.execute("SELECT SUM(valor_total) FROM produtos_vendidos WHERE venda_id = ?", (venda_id,)).fetchone()[0]
+        self.cursor.execute("""
+            UPDATE vendas
+            SET  
+                quantidade = ?,
+                valor_total = ?
+            WHERE codigo_venda = ?
+        """, (quantidade_total_venda, valor_total_venda, venda_id))
+
 
 registrador = Registradora()
 
@@ -66,20 +84,29 @@ registrador = Registradora()
 # registrador.cadastrarProdutos("Lápis", 0.5, 30)
 # registrador.cadastrarProdutos("Caderno", 10, 10)
 # registrador.cadastrarProdutos("Estojo", 15, 15)
-registrador.cadastrarProdutos("Arroz", 20.00, 50)
-registrador.cadastrarProdutos("Feijão", 8.50, 40)
-registrador.cadastrarProdutos("Macarrão", 5.75, 60)
-registrador.cadastrarProdutos("Sabonete", 2.99, 100)
-registrador.cadastrarProdutos("Detergente", 3.50, 80)
-registrador.cadastrarProdutos("Caderno", 12.00, 30)
-registrador.cadastrarProdutos("Lápis", 1.50, 200)
-registrador.cadastrarProdutos("Caneta", 2.00, 150)
-registrador.cadastrarProdutos("Borracha", 0.75, 120)
-registrador.cadastrarProdutos("Leite", 6.90, 35)
+# registrador.cadastrarProdutos("Arroz", 20.00, 50)
+# registrador.cadastrarProdutos("Feijão", 8.50, 40)
+# registrador.cadastrarProdutos("Macarrão", 5.75, 60)
+# registrador.cadastrarProdutos("Sabonete", 2.99, 100)
+# registrador.cadastrarProdutos("Detergente", 3.50, 80)
+# registrador.cadastrarProdutos("Caderno", 12.00, 30)
+# registrador.cadastrarProdutos("Lápis", 1.50, 200)
+# registrador.cadastrarProdutos("Caneta", 2.00, 150)
+# registrador.cadastrarProdutos("Borracha", 0.75, 120)
+# registrador.cadastrarProdutos("Leite", 6.90, 35)
 
-registrador.mostrarProdutos()
+# registrador.mostrarProdutos()
 
-produtos = [(1, 'Borracha', 1.0, 10), (2, 'Lápis', 0.5, 30), (3, 'Caderno', 10.0, 10), (4, 'Estojo', 15.0, 15), (5, 'Arroz', 20.0, 50), (6, 'Feijão', 8.5, 40), (7, 'Macarrão', 5.75, 60), (8, 'Sabonete', 2.99, 100), (9, 'Detergente', 3.5, 80), (10, 'Caneta', 2.0, 150), (11, 'Leite', 6.9, 35)]
+# lista1 = [(1, 2), (4, 1), (10, 5)]
 
-# registrador.registrarVendas(produtos)
+# registrador.registrarVendas(lista1)
+
+# lista2 = [(5, 5), (6, 10), (9, 2)]
+
+# registrador.registrarVendas(lista2)
+
+# print()
+
+
 # registrador.mostrarProdutosVendidos()
+# registrador.mostrarVendas()
