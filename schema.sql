@@ -22,3 +22,11 @@ CREATE TABLE IF NOT EXISTS produtos_vendidos(
     FOREIGN KEY (venda_id) REFERENCES vendas(codigo_venda),
     FOREIGN KEY (produto_id) REFERENCES produtos(codigo_produto)
 );
+
+CREATE TRIGGER IF NOT EXISTS atualizar_estoque
+AFTER INSERT ON produtos_vendidos
+BEGIN
+    UPDATE produtos
+    SET estoque = estoque - NEW.quantidade
+    WHERE codigo_produto = NEW.produto_id;
+END;
