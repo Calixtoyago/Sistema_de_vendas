@@ -10,6 +10,8 @@ CREATE TABLE IF NOT EXISTS vendas(
     codigo_venda INTEGER,
     quantidade INTEGER NOT NULL,
     valor_total REAL NOT NULL,
+    -- desconto REAL NOT NULL,
+    -- valor_final REAL NOT NULL,
     data_compra NUMERIC NOT NULL DEFAULT CURRENT_TIMESTAMP, 
     PRIMARY KEY (codigo_venda)
 );

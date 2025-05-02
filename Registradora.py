@@ -1,6 +1,7 @@
 import sqlite3
 import pandas as pd
 from tabulate import tabulate
+import csv
 
 class Registradora:
     def __init__(self, banco="registros.db"):
@@ -69,6 +70,36 @@ class Registradora:
         db = db.rename(columns={'valor_total' : 'valor_total (R$)'})
         print(tabulate(db, headers='keys', tablefmt='fancy_grid', showindex=False))
         # print(db.to_string(index=False))
+
+        def gerarRelatorios(self):
+            ...
+
+    def exportarDados(self):
+        produtos = self.cursor.execute("SELECT * FROM produtos").fetchall()
+        vendas = self.cursor.execute("SELECT * FROM vendas").fetchall()
+        produtos_vendidos = self.cursor.execute("SELECT * FROM produtos_vendidos").fetchall()
+
+        if len(produtos) != 0:
+            with open("csv_files/produtos.csv", "w", newline="") as file:
+                writer = csv.writer(file)
+                writer.writerow(["codigo_produto", "nome", "valor_unitario", "estoque"])
+                for produto in produtos:
+                    writer.writerow([produto[0], produto[1], produto[2], produto[3]])
+        
+        if len(vendas) != 0:
+            with open("csv_files/vendas.csv", "w", newline="") as file:
+                writer = csv.writer(file)
+                writer.writerow(["codigo_venda", "quantidade", "valor_total", "data_compra"])
+                for venda in vendas:
+                    writer.writerow([venda[0], venda[1], venda[2], venda[3]])
+        
+        if len(produtos_vendidos) != 0:
+            with open("csv_files/produtos_vendidos.csv", "w", newline="") as file:
+                writer = csv.writer(file)
+                writer.writerow(["venda_id", "produto_id", "quantidade", "valor_total"])
+                for produtos in produtos_vendidos:
+                    writer.writerow([produtos[0], produtos[1], produtos[2], produtos[3]])
+
     
 class Produtos(Registradora):
     def __init__(self, banco="registros.db"):
@@ -86,7 +117,7 @@ class Produtos(Registradora):
             self.connector.commit()
             print("Produto cadastrado")
         
-            self.mostrarTabelasCompletas("produtos")
+            # self.mostrarTabelasCompletas("produtos")
     
     def verProdutoUnico(self, nome):
         query = "SELECT * FROM produtos WHERE nome = ?"
@@ -133,13 +164,39 @@ class Vendas(Registradora):
     def atualizarVendas(self, venda_id):
         quantidade_total_venda = self.cursor.execute("SELECT SUM(quantidade) FROM produtos_vendidos WHERE venda_id = ?", (venda_id,)).fetchone()[0]
         valor_total_venda = self.cursor.execute("SELECT SUM(valor_total) FROM produtos_vendidos WHERE venda_id = ?", (venda_id,)).fetchone()[0]
+        # valor_final = round(valor_total_venda - desconto, 2)
         self.cursor.execute("""
             UPDATE vendas
             SET  
                 quantidade = ?,
-                valor_total = ?
+                valor_total = ?,
+                # desconto = ?,
+                # valor_final = ?
             WHERE codigo_venda = ?
         """, (quantidade_total_venda, valor_total_venda, venda_id))
+        # """, (quantidade_total_venda, valor_total_venda, desconto, valor_final, venda_id))
+    
+    def adicionarDesconto(self):
+        opcao = ""
+        while opcao not in ('s', 'n'):
+            opcao = input("Adicionar desconto: [S/N] >> ").lower().strip()
+        
+        if opcao == "n":
+            return
+        else:
+            while opcao not in ("v", "p"):
+                opcao = input("Desconto em valor ou percentual: [v/p] ").lower().strip()
+                try:
+                    if opcao == "v":
+                        valor = float(input("Valor do desconto: "))
+                        return valor
+                    elif opcao == "p":
+                        percentual = float(input("Percentual do desconto em %: "))
+                        percentual = 1 - percentual/100
+                        return percentual
+                except ValueError:
+                    print("ERROR - Opcao invalida")
+
 
 def menu():
     ADMIN = "12345"
@@ -154,11 +211,13 @@ def menu():
 [2] Registrar venda
 [3] Ver vendas
 [4] Ver produtos
+[5] Exportar dados
+[6] Importar dados
 [0] Sair
     """)
         while True:
             opcao = input(">>>> ")
-            if opcao in ('1', '2', '3', '4'):
+            if opcao in ('1', '2', '3', '4', '5', '6'):
                 break
             else:
                 print("Opcao invalida")
@@ -172,11 +231,11 @@ def menu():
 
                     valor = float(f"{valor:.2f}")
 
-                except TypeError:
-                    print("Valor inserido invalido - registro cancelado")
+                except ValueError:
+                    print("ERROR - Valor inserido invalido - registro cancelado")
                 else:
                     produtos.cadastrarProdutos(nome, valor, estoque)
-                    print("Produto cadastrado com sucesso")
+                    # print("Produto cadastrado com sucesso")
                     produtos.verProdutoUnico(nome)
             case '2':
                 adicionar = ""
@@ -202,21 +261,17 @@ def menu():
                             print("ERROR - Opcao invalida")
                         else: 
                             break
-                
-                # codigos = []
-                # for produto in lista_produtos:
-                #     codigos.append(produto[0])
-
-                # placeholders = ','.join(['?'] * len(codigos))  # Resultado: '?,?,?'
-                # query = f"SELECT * FROM produtos WHERE codigo_produto IN ({placeholders})"
-                # db = pd.read_sql(query, registrador.connector, params=codigos)
-                # print(tabulate(db, headers='keys', tablefmt='fancy_grid', showindex=False))
-
-                # registrador.cursor.execute()
+                            
                 vendas.registrarVendas(lista_produtos)
                 
             case '3':
                 registrador.mostrarVendas()
+            case '4':
+                registrador.mostrarTabelasCompletas("produtos")
+            case '5':
+                registrador.exportarDados()
+            case '6':
+                pass
 
     
 menu()
