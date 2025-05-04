@@ -71,8 +71,6 @@ class Registradora:
         print(tabulate(db, headers='keys', tablefmt='fancy_grid', showindex=False))
         # print(db.to_string(index=False))
 
-        def gerarRelatorios(self):
-            ...
 
     def exportarDados(self):
         produtos = self.cursor.execute("SELECT * FROM produtos").fetchall()
@@ -169,9 +167,7 @@ class Vendas(Registradora):
             UPDATE vendas
             SET  
                 quantidade = ?,
-                valor_total = ?,
-                # desconto = ?,
-                # valor_final = ?
+                valor_total = ?
             WHERE codigo_venda = ?
         """, (quantidade_total_venda, valor_total_venda, venda_id))
         # """, (quantidade_total_venda, valor_total_venda, desconto, valor_final, venda_id))
@@ -196,6 +192,43 @@ class Vendas(Registradora):
                         return percentual
                 except ValueError:
                     print("ERROR - Opcao invalida")
+    
+    def buscarVendas(self, inicio, final):
+            if inicio == final:
+                having = f"HAVING v.data_compra LIKE '{inicio}%'"
+            else:
+                having = f"HAVING v.data_compra BETWEEN '{inicio}%' AND '{final}%'"
+            # print(where)
+            query = f"""
+                SELECT 
+                    v.codigo_venda,
+                    group_concat(p.nome, ' | ') as produtos,
+                    group_concat(pv.quantidade, ' | ') as quantidade,
+                    v.quantidade as quantidade_total,
+                    v.valor_total, 
+                    v.data_compra
+                FROM vendas v
+                JOIN produtos_vendidos pv ON v.codigo_venda = pv.venda_id
+                JOIN produtos p ON pv.produto_id = p.codigo_produto
+                GROUP BY v.codigo_venda
+                {having}
+                """
+            db = pd.read_sql(query, self.connector)
+            print(tabulate(db, headers='keys', tablefmt='fancy_grid', showindex=False))
+
+            query_total = f"""
+                WITH query AS (
+                    {query}
+                )
+                SELECT 
+                    COUNT(*) as quantidade_de_vendas,
+                    SUM(quantidade_total),
+                    SUM(valor_total)
+                FROM 
+                    query
+                        """
+            db = pd.read_sql(query_total, self.connector)
+            print(tabulate(db, headers='keys', tablefmt='fancy_grid', showindex=False))
 
 
 def menu():
@@ -211,8 +244,8 @@ def menu():
 [2] Registrar venda
 [3] Ver vendas
 [4] Ver produtos
-[5] Exportar dados
-[6] Importar dados
+[5] Buscar vendas
+[6] Exportar dados
 [0] Sair
     """)
         while True:
@@ -269,9 +302,11 @@ def menu():
             case '4':
                 registrador.mostrarTabelasCompletas("produtos")
             case '5':
-                registrador.exportarDados()
+                inicio = input("Digite a data de inicio [YYYY-MM-dd]: ")
+                final = input("Digite a data final [YYYY-MM-dd]: ")
+                vendas.buscarVendas(inicio, final)
             case '6':
-                pass
+                registrador.exportarDados()
 
     
 menu()
